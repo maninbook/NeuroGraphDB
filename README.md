@@ -164,6 +164,28 @@ its ceiling was nearly zero before we started.
 
 Run the linkage check on your corpus before adopting this. It takes nine seconds.
 
+
+### The reranking ceiling
+
+Before adding a diversity or lateral-inhibition term we measured what any top-20 reranker
+could possibly gain. A **perfect oracle** reordering the top 20 gains at most:
+
+| | already correct | fixable by reordering | not in top 20 at all |
+|---|---|---|---|
+| HotpotQA | 94.0% | **2.0%** | 4.0% |
+| 2WikiMultihopQA | 90.7% | **1.1%** | 8.2% |
+| MuSiQue | 34.1% | **4.7%** | **61.2%** |
+
+And the redundancy signal sits in the wrong place: 2Wiki's failing questions really are more
+redundant than its passing ones (ratio 1.094), but only 1.1% of questions are fixable there.
+MuSiQue has the headroom and essentially no duplicates to remove — 0.02 pairs above 0.85
+similarity per question.
+
+**Reranking is exhausted on these benchmarks.** The remaining bottleneck is recall: getting the
+supporting passages into the candidate set at all. On MuSiQue 61.2% of questions never do,
+because 63% of its supporting pairs are unreachable at any depth — the corpus does not contain
+the link. That is a property of how the benchmark was assembled, not something a retriever can fix.
+
 ---
 
 ## Applicability, stated plainly
