@@ -196,8 +196,30 @@ magnitude more than anything else we measured. The supporting passages were neve
 sat at ranks 11–100 and we never looked. The graph advantage also persists at depth
 (0.647 vs 0.559 for dense at k=100), so it helps deep candidate generation too, not just the head.
 
-This is standard RAG practice — retrieve deep, rerank hard, read shallow — that this study
-simply had not applied. It is the largest open lever in the system.
+We then applied it — retrieve top-100, rerank with `BAAI/bge-reranker-v2-m3`, read top-10 —
+and **it made every dataset worse**: HotpotQA 0.940 → 0.915, MuSiQue 0.341 → 0.311,
+2Wiki 0.907 → **0.467**.
+
+The mechanism separates perfectly. Reranking is a *pure trade*:
+
+| | gold was buried at ranks 11–100 | gold was already in the top 10 |
+|---|---|---|
+| MuSiQue | +96 / **−0** | **+0** / −126 |
+| HotpotQA | +38 / **−0** | **+0** / −63 |
+| 2Wiki | +5 / **−0** | **+0** / −445 |
+
+R@1 and R@5 both improve. Only *all-supporting@10* falls. A cross-encoder scores direct
+query–passage relevance, but the second-hop passage in a multi-hop question **does not contain
+the entities the question mentions** — the article about someone's mother does not mention the
+film. Bridge passages are, by construction, not relevant-looking. 2Wiki is the purest case and
+loses 44 points.
+
+**"Add a reranker" is default RAG advice, and on multi-hop retrieval it is actively harmful.**
+Pointwise relevance is the wrong objective for a coverage metric.
+
+One positive result: our graph still contributes *after* reranking, on all three datasets and
+with zero losses (MuSiQue 25/4 p=0.0001, HotpotQA 10/0 p=0.0020, 2Wiki 15/0 p=0.0001). The
+method survives inside a standard modern pipeline.
 
 ---
 
