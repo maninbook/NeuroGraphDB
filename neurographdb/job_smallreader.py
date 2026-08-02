@@ -66,6 +66,7 @@ TOP_P = 0.95          # 사전등록
 
 N_Q = int(sys.argv[1]) if len(sys.argv) > 1 else 500
 TOP_K = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+ONLY = sys.argv[3] if len(sys.argv) > 3 else None
 SEED = 0
 
 PARQUET_REV = "refs/convert/parquet"
@@ -205,7 +206,7 @@ def main():
         return np.concatenate(out).astype(np.float32)
 
     prepared = {}
-    for ds in DATASETS:
+    for ds in ([ONLY] if ONLY else list(DATASETS)):
         titles, texts, questions = load_pool(ds, N_Q, SEED)
         P = encode([f"{t}. {x}" for t, x in zip(titles, texts)])
         dense = DenseIndex(P.shape[1]); dense.add_batch(P)
