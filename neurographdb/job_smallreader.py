@@ -61,6 +61,8 @@ N_SEEDS = 5
 MAXK = 20
 MAXW = 6
 N_SAMPLE = 8          # 사전등록
+# 폐쇄형(검색 없음) 통제. RAG가 실제로 얼마를 더하는지 재려면 이게 있어야 한다.
+CLOSED = os.environ.get("CLOSEDBOOK", "") == "1"
 TEMP = 0.7            # 사전등록
 TOP_P = 0.95          # 사전등록
 
@@ -247,6 +249,14 @@ def main():
            "End your reply with a final line of exactly this form:\n"
            "ANSWER: <the short answer span>\n\n")
 
+    PLAIN_CB = ("Answer the question from your own knowledge.\n"
+                "Reply with the short answer span only — no explanation, no sentence.\n\n")
+    COT_CB = ("Answer the question from your own knowledge.\n"
+              "Work through it step by step. Multi-hop questions need you to recall one fact "
+              "first, then use it to recall the next.\n"
+              "End your reply with a final line of exactly this form:\n"
+              "ANSWER: <the short answer span>\n\n")
+
     def extract(text, cot):
         t = text.strip()
         if not cot:
@@ -263,10 +273,14 @@ def main():
         def prompts(cot):
             out = []
             for i, q in enumerate(questions):
-                ctx = "\n\n".join(f"[{n+1}] {t}: {body[t]}"
-                                  for n, t in enumerate(ranks[i][:TOP_K]))
-                head = COT if cot else PLAIN
-                msg = f"{head}{ctx}\n\nQuestion: {q['q']}\nAnswer:"
+                if CLOSED:
+                    head = (COT_CB if cot else PLAIN_CB)
+                    msg = f"{head}Question: {q['q']}\nAnswer:"
+                else:
+                    ctx = "\n\n".join(f"[{n+1}] {t}: {body[t]}"
+                                      for n, t in enumerate(ranks[i][:TOP_K]))
+                    head = COT if cot else PLAIN
+                    msg = f"{head}{ctx}\n\nQuestion: {q['q']}\nAnswer:"
                 out.append(tok.apply_chat_template([{"role": "user", "content": msg}],
                                                    tokenize=False, add_generation_prompt=True))
             return out
@@ -331,7 +345,7 @@ def main():
                "n_sample": N_SAMPLE, "temperature": TEMP,
                "results": {k: v["results"] for k, v in report.items()},
                "mcnemar": out_tests, "runtime_sec": time.time() - t0}
-    tag = LLM_MODEL.split("/")[-1]
+    tag = LLM_MODEL.split("/")[-1] + ("_closedbook" if CLOSED else "")
     out = Path(f"/tmp/smallreader_{tag}_top{TOP_K}_n{N_Q}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
