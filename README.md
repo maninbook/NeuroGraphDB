@@ -181,10 +181,23 @@ redundant than its passing ones (ratio 1.094), but only 1.1% of questions are fi
 MuSiQue has the headroom and essentially no duplicates to remove — 0.02 pairs above 0.85
 similarity per question.
 
-**Reranking is exhausted on these benchmarks.** The remaining bottleneck is recall: getting the
-supporting passages into the candidate set at all. On MuSiQue 61.2% of questions never do,
-because 63% of its supporting pairs are unreachable at any depth — the corpus does not contain
-the link. That is a property of how the benchmark was assembled, not something a retriever can fix.
+**Reranking of the top 20 is exhausted** — but that is a statement about reordering a
+*shallow* candidate list, not about reranking in general. Retrieving deeper changes the picture
+completely:
+
+| all-supporting@k | top-10 | top-50 | top-100 | top-200 |
+|---|---|---|---|---|
+| HotpotQA | 0.940 | 0.983 | 0.988 | 0.991 |
+| 2WikiMultihopQA | 0.907 | 0.931 | 0.942 | 0.954 |
+| **MuSiQue** | **0.341** | 0.534 | **0.647** | 0.732 |
+
+On MuSiQue a reranker operating over the top 100 has **+30.6 points** of headroom — an order of
+magnitude more than anything else we measured. The supporting passages were never missing; they
+sat at ranks 11–100 and we never looked. The graph advantage also persists at depth
+(0.647 vs 0.559 for dense at k=100), so it helps deep candidate generation too, not just the head.
+
+This is standard RAG practice — retrieve deep, rerank hard, read shallow — that this study
+simply had not applied. It is the largest open lever in the system.
 
 ---
 
