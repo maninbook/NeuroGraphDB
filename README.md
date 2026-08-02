@@ -196,6 +196,9 @@ PROPOSITION.md        pre-registration for the propositional layer (rejected)
 ```
 
 Indexing, spreading and scoring run in C++; Python handles data preparation and orchestration.
+Raw results for every run are published at
+[goethe0101/neurographdb-results](https://huggingface.co/datasets/goethe0101/neurographdb-results).
+
 Every experiment ran on Hugging Face Jobs; each `job_*.py` carries its dependencies in a
 PEP 723 header and rebuilds the C++ core inside the container.
 
