@@ -54,7 +54,7 @@ os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 
 CODE_REPO = "goethe0101/neurographdb"
 RESULTS_REPO = "goethe0101/neurographdb-results"
-LLM_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+LLM_MODEL = os.environ.get("READER", "Qwen/Qwen2.5-7B-Instruct")
 EMBED_MODEL = "BAAI/bge-base-en-v1.5"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 N_SEEDS = 5
@@ -331,7 +331,8 @@ def main():
                "n_sample": N_SAMPLE, "temperature": TEMP,
                "results": {k: v["results"] for k, v in report.items()},
                "mcnemar": out_tests, "runtime_sec": time.time() - t0}
-    out = Path(f"/tmp/smallreader_top{TOP_K}_n{N_Q}.json")
+    tag = LLM_MODEL.split("/")[-1]
+    out = Path(f"/tmp/smallreader_{tag}_top{TOP_K}_n{N_Q}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
     HfApi().upload_file(path_or_fileobj=str(out), path_in_repo=f"runs/{out.name}",
