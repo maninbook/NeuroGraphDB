@@ -223,6 +223,30 @@ method survives inside a standard modern pipeline.
 
 ---
 
+## It runs on all of Wikipedia
+
+BEIR's HotpotQA corpus — the one used by MTEB — is **5.23M Wikipedia passages**.
+
+| | |
+|---|---|
+| passages | 5,233,329 |
+| mention edges | **63,895,815** (12.21 per node) |
+| **index time** | **23.9 minutes**, CPU, zero LLM calls |
+| **gold-pair linkage** | **59.0%** |
+| the same corpus under HippoRAG-style OpenIE | **54 days** |
+
+59.0% linkage sits right where the method works — level with our small HotpotQA pool (61.0%)
+and far above MuSiQue (32.4%), where it did not. **The structure survives the scale-up.**
+
+Edge density is 13x higher than in the small pools (12.21 versus 0.35–0.92), which predicts
+that query gating — the suppression mechanism that only helped on our densest small corpus —
+becomes load-bearing here.
+
+This is the setting LLM-based graph RAG cannot enter, and it is why that literature reports
+only on pools of a few thousand passages.
+
+---
+
 ## Applicability, stated plainly
 
 Works when documents **cross-reference each other by title** — encyclopedias, internal wikis,
