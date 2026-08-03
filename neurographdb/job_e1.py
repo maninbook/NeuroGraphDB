@@ -96,19 +96,44 @@ def build_core():
 
 
 def load_official(name):
+    """정답을 **문단 인덱스**로 확정한다. 제목으로 하면 안 된다.
+
+    MuSiQue 공식 코퍼스에는 같은 제목의 문단이 여럿 있다 — 647개 제목이 중복이고
+    'New York City'는 28개다(2Wiki·HotpotQA는 중복 0). 제목으로 대조하면
+    28개 중 아무거나 걸려도 정답 처리돼 **점수가 부풀려진다.**
+    실제로 그렇게 재서 MuSiQue R@5가 75.1로 나왔고, 인덱스로 재면 다른 값이 된다.
+
+    MuSiQue는 정답 문단 본문이 코퍼스와 **100% 정확히 일치**하므로 본문으로 확정한다.
+    나머지 둘은 제목이 유일하므로 제목으로 확정해도 같다.
+    """
     from huggingface_hub import hf_hub_download
     key = DATASETS[name]
     corpus = json.load(open(hf_hub_download(OFFICIAL, f"{key}_corpus.json", repo_type="dataset")))
     qs = json.load(open(hf_hub_download(OFFICIAL, f"{key}.json", repo_type="dataset")))
     titles = [c["title"] for c in corpus]
     texts = [c["text"] for c in corpus]
-    out = []
+
+    nz = lambda s: " ".join(s.split())
+    by_text, by_title = {}, {}
+    for i, c in enumerate(corpus):
+        by_text.setdefault(nz(c["text"]), i)
+        by_title.setdefault(c["title"], i)
+
+    out, unresolved = [], 0
     for r in qs:
         if name == "musique":
-            gold = sorted({p["title"] for p in r["paragraphs"] if p.get("is_supporting")})
+            ids = sorted({by_text[nz(p["paragraph_text"])]
+                          for p in r["paragraphs"]
+                          if p.get("is_supporting") and nz(p["paragraph_text"]) in by_text})
+            want = sum(1 for p in r["paragraphs"] if p.get("is_supporting"))
         else:
-            gold = sorted({sf[0] for sf in r["supporting_facts"]})
-        out.append({"q": r["question"], "gold": gold, "answer": str(r.get("answer", ""))})
+            names = sorted({sf[0] for sf in r["supporting_facts"]})
+            ids = sorted({by_title[t] for t in names if t in by_title})
+            want = len(names)
+        unresolved += want - len(ids)
+        out.append({"q": r["question"], "gold": ids, "answer": str(r.get("answer", ""))})
+    if unresolved:
+        print(f"  ! 코퍼스에서 못 찾은 정답 문단 {unresolved}건")
     return titles, texts, out
 
 
@@ -293,8 +318,10 @@ def run_one(DATASET, mdl_holder, t0):
     for c in conds:
         rs = []
         for i, q in enumerate(questions):
-            R = [titles[d] for d in rank(c, i)]
+            R = rank(c, i)            # 문단 인덱스 그대로 — 제목으로 바꾸지 않는다
             gold = q["gold"]
+            if not gold:
+                continue
             r = {f"r@{k}": sum(1 for gv in gold if gv in R[:k]) / len(gold) for k in KS}
             r["all@5"] = float(all(gv in R[:5] for gv in gold))
             rs.append(r)
