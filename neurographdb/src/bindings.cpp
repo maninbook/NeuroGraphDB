@@ -54,15 +54,18 @@ PYBIND11_MODULE(_ngdb_core, m) {
            py::arg("alpha") = 1.0f, py::arg("beta") = 1.0f)
         .def("beam_search", [](const Graph& self, const std::vector<int32_t>& seeds,
                                const std::vector<float>& qsim, int max_depth,
-                               int beam_width, float min_sim, int top_k) {
-            auto r = self.beam_search(seeds, qsim, max_depth, beam_width, min_sim);
+                               int beam_width, float min_sim, int top_k,
+                               int score_mode) {
+            auto r = self.beam_search(seeds, qsim, max_depth, beam_width,
+                                      min_sim, score_mode);
             if (top_k > 0 && (int)r.size() > top_k) r.resize(top_k);
             std::vector<std::pair<int,float>> out;
             out.reserve(r.size());
             for (auto& x : r) out.emplace_back(x.doc, x.score);
             return out;
         }, py::arg("seeds"), py::arg("qsim"), py::arg("max_depth") = 3,
-           py::arg("beam_width") = 4, py::arg("min_sim") = 0.0f, py::arg("top_k") = 0)
+           py::arg("beam_width") = 4, py::arg("min_sim") = 0.0f, py::arg("top_k") = 0,
+           py::arg("score_mode") = 0)
         .def("reinforce", &Graph::reinforce, py::arg("coactive"),
              py::arg("delta") = 0.03f, py::arg("w_max") = 1.0f)
         .def("decay", &Graph::decay, py::arg("lambda_") = 0.02f)

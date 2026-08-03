@@ -86,9 +86,15 @@ namespace {
 struct Path {
     int32_t last;
     float   sum;      /* 경로 위 qsim 합 */
+    float   worst;    /* 경로 위 최소 qsim */
+    float   tail;     /* 도착 노드 qsim */
     int     len;
     std::vector<int32_t> nodes;
-    float score() const { return sum / static_cast<float>(len); }
+    float score(int mode) const {
+        if (mode == 1) return worst;
+        if (mode == 2) return tail;
+        return sum / static_cast<float>(len);
+    }
 };
 }  // namespace
 
@@ -96,7 +102,8 @@ std::vector<ScoredDoc> Graph::beam_search(const std::vector<int32_t>& seeds,
                                           const std::vector<float>&   qsim,
                                           int   max_depth,
                                           int   beam_width,
-                                          float min_sim) const {
+                                          float min_sim,
+                                          int   score_mode) const {
     std::vector<float> best(n_, -1.0f);
 
     for (int32_t s : seeds) {
@@ -104,7 +111,7 @@ std::vector<ScoredDoc> Graph::beam_search(const std::vector<int32_t>& seeds,
 
         /* seed마다 독립적으로 빔을 굴린다. 여기서 합치면 희소 seed가 무의미해진다. */
         std::vector<Path> beam;
-        beam.push_back({s, qsim[s], 1, {s}});
+        beam.push_back({s, qsim[s], qsim[s], qsim[s], 1, {s}});
         if (qsim[s] > best[s]) best[s] = qsim[s];
 
         for (int d = 0; d < max_depth && !beam.empty(); d++) {
@@ -118,9 +125,11 @@ std::vector<ScoredDoc> Graph::beam_search(const std::vector<int32_t>& seeds,
                     if (std::find(p.nodes.begin(), p.nodes.end(), v) != p.nodes.end())
                         continue;
                     Path q;
-                    q.last = v;
-                    q.sum  = p.sum + qsim[v];
-                    q.len  = p.len + 1;
+                    q.last  = v;
+                    q.sum   = p.sum + qsim[v];
+                    q.worst = std::min(p.worst, qsim[v]);
+                    q.tail  = qsim[v];
+                    q.len   = p.len + 1;
                     q.nodes = p.nodes;
                     q.nodes.push_back(v);
                     cand.push_back(std::move(q));
@@ -131,12 +140,14 @@ std::vector<ScoredDoc> Graph::beam_search(const std::vector<int32_t>& seeds,
             const size_t keep = std::min<size_t>(cand.size(),
                                                  std::max(1, beam_width));
             std::partial_sort(cand.begin(), cand.begin() + keep, cand.end(),
-                              [](const Path& a, const Path& b) {
-                                  return a.score() > b.score();
+                              [score_mode](const Path& a, const Path& b) {
+                                  return a.score(score_mode) > b.score(score_mode);
                               });
             cand.resize(keep);
-            for (const Path& p : cand)
-                if (p.score() > best[p.last]) best[p.last] = p.score();
+            for (const Path& p : cand) {
+                const float sc = p.score(score_mode);
+                if (sc > best[p.last]) best[p.last] = sc;
+            }
             beam.swap(cand);
         }
     }
