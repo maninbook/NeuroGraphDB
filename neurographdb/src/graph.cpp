@@ -1,6 +1,7 @@
 #include "graph.h"
 #include <algorithm>
 #include <queue>
+#include <cstddef>
 
 void Graph::add_edge(int32_t src, int32_t dst, float w) {
     add_edge_typed(src, dst, w, -1, 1);
@@ -75,6 +76,77 @@ std::vector<ScoredDoc> Graph::spread(const std::vector<int32_t>& seeds,
         if (act[i] > 0.0f) out.push_back({i, act[i]});
     std::sort(out.begin(), out.end(),
               [](const ScoredDoc& a, const ScoredDoc& b){ return a.score > b.score; });
+    return out;
+}
+
+namespace {
+/* 빔 안의 한 경로. 깊이가 3이라 노드를 그대로 들고 다녀도 싸다.
+ * 방문 노드를 담는 이유는 순환을 막기 위해서다 — 같은 문단을 두 번 지나는 경로는
+ * 새 정보를 주지 않으면서 평균 점수만 올린다. */
+struct Path {
+    int32_t last;
+    float   sum;      /* 경로 위 qsim 합 */
+    int     len;
+    std::vector<int32_t> nodes;
+    float score() const { return sum / static_cast<float>(len); }
+};
+}  // namespace
+
+std::vector<ScoredDoc> Graph::beam_search(const std::vector<int32_t>& seeds,
+                                          const std::vector<float>&   qsim,
+                                          int   max_depth,
+                                          int   beam_width,
+                                          float min_sim) const {
+    std::vector<float> best(n_, -1.0f);
+
+    for (int32_t s : seeds) {
+        if (s < 0 || s >= n_ || s >= static_cast<int32_t>(qsim.size())) continue;
+
+        /* seed마다 독립적으로 빔을 굴린다. 여기서 합치면 희소 seed가 무의미해진다. */
+        std::vector<Path> beam;
+        beam.push_back({s, qsim[s], 1, {s}});
+        if (qsim[s] > best[s]) best[s] = qsim[s];
+
+        for (int d = 0; d < max_depth && !beam.empty(); d++) {
+            std::vector<Path> cand;
+            cand.reserve(beam.size() * 8);
+            for (const Path& p : beam) {
+                auto it = adj_.begin() + p.last;
+                for (const auto& [v, e] : *it) {
+                    if (qsim[v] < min_sim) continue;
+                    /* 순환 차단 */
+                    if (std::find(p.nodes.begin(), p.nodes.end(), v) != p.nodes.end())
+                        continue;
+                    Path q;
+                    q.last = v;
+                    q.sum  = p.sum + qsim[v];
+                    q.len  = p.len + 1;
+                    q.nodes = p.nodes;
+                    q.nodes.push_back(v);
+                    cand.push_back(std::move(q));
+                }
+            }
+            if (cand.empty()) break;
+
+            const size_t keep = std::min<size_t>(cand.size(),
+                                                 std::max(1, beam_width));
+            std::partial_sort(cand.begin(), cand.begin() + keep, cand.end(),
+                              [](const Path& a, const Path& b) {
+                                  return a.score() > b.score();
+                              });
+            cand.resize(keep);
+            for (const Path& p : cand)
+                if (p.score() > best[p.last]) best[p.last] = p.score();
+            beam.swap(cand);
+        }
+    }
+
+    std::vector<ScoredDoc> out;
+    out.reserve(64);
+    for (int32_t i = 0; i < n_; i++)
+        if (best[i] >= 0.0f) out.push_back({i, best[i]});
+    std::sort(out.begin(), out.end(),
+              [](const ScoredDoc& a, const ScoredDoc& b) { return a.score > b.score; });
     return out;
 }
 

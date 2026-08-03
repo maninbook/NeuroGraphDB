@@ -52,6 +52,17 @@ PYBIND11_MODULE(_ngdb_core, m) {
            /* 기본값이 "제약 없음"이라 기존 호출부는 한 글자도 안 바꿔도 된다 */
            py::arg("query_types") = std::vector<int16_t>{},
            py::arg("alpha") = 1.0f, py::arg("beta") = 1.0f)
+        .def("beam_search", [](const Graph& self, const std::vector<int32_t>& seeds,
+                               const std::vector<float>& qsim, int max_depth,
+                               int beam_width, float min_sim, int top_k) {
+            auto r = self.beam_search(seeds, qsim, max_depth, beam_width, min_sim);
+            if (top_k > 0 && (int)r.size() > top_k) r.resize(top_k);
+            std::vector<std::pair<int,float>> out;
+            out.reserve(r.size());
+            for (auto& x : r) out.emplace_back(x.doc, x.score);
+            return out;
+        }, py::arg("seeds"), py::arg("qsim"), py::arg("max_depth") = 3,
+           py::arg("beam_width") = 4, py::arg("min_sim") = 0.0f, py::arg("top_k") = 0)
         .def("reinforce", &Graph::reinforce, py::arg("coactive"),
              py::arg("delta") = 0.03f, py::arg("w_max") = 1.0f)
         .def("decay", &Graph::decay, py::arg("lambda_") = 0.02f)
