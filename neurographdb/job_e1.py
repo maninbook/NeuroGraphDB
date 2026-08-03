@@ -179,6 +179,25 @@ def main():
     import torch
     t0 = time.time()
     build_core()
+
+    targets = list(DATASETS) if DATASET == "all" else [DATASET]
+    # 모델을 한 번만 올린다. 데이터셋마다 잡을 띄우면 로드(70초)를 세 번 낸다.
+    mdl_holder = {}
+    all_report = {}
+    for ds in targets:
+        all_report[ds] = run_one(ds, mdl_holder, t0)
+    from pathlib import Path as _P
+    from huggingface_hub import HfApi
+    out = _P(f"/tmp/e1_{'all' if DATASET=='all' else DATASET}_nvembed.json")
+    out.write_text(json.dumps(all_report, indent=2, ensure_ascii=False))
+    HfApi().upload_file(path_or_fileobj=str(out), path_in_repo=f"runs/{out.name}",
+                        repo_id=RESULTS_REPO, repo_type="dataset")
+    print(f"\n업로드: runs/{out.name}  (총 {(time.time()-t0)/60:.1f}분)")
+
+
+def run_one(DATASET, mdl_holder, t0):
+    import numpy as np
+    import torch
     from ngdb import DenseIndex, Graph
 
     titles, texts, questions = load_official(DATASET)
@@ -189,10 +208,14 @@ def main():
           f"제목엣지 {len(te):,}")
 
     # NV-Embed-v2는 trust_remote_code가 필요하고 질의에 instruction을 붙인다.
-    from transformers import AutoModel, AutoTokenizer
+    from transformers import AutoModel
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    mdl = AutoModel.from_pretrained(EMBED_MODEL, trust_remote_code=True,
-                                    torch_dtype=torch.float16).to(dev).eval()
+    if "mdl" not in mdl_holder:
+        mdl_holder["mdl"] = AutoModel.from_pretrained(
+            EMBED_MODEL, trust_remote_code=True,
+            torch_dtype=torch.float16).to(dev).eval()
+        print(f"[{time.time()-t0:6.1f}s] 임베더 로드 (한 번만)")
+    mdl = mdl_holder["mdl"]
     INSTR = "Instruct: Given a question, retrieve documents that best answer the question\nQuery: "
 
     def encode(items, instruction="", batch=8):
@@ -249,19 +272,23 @@ def main():
         if cond == "G":
             return merge([d for d, _ in g_t.spread(sd, sa, 3, 0.65, 0.02, MAXK)], i)
         qsim = (P @ Q[i]).astype(np.float32)
+        if cond == "GQ":
+            gt = np.clip((qsim - LO) / (HI - LO), FLOOR, 1.0)
+            gq = Graph(n); gq.add_edges([(a, b, float(gt[b])) for a, b in te])
+            return merge([d for d, _ in gq.spread(sd, sa, 3, 0.65, 0.02, MAXK)], i)
+        if cond == "GB":
+            # 2Wiki에서 빠졌던 조합. G가 최고였는데 빔서치를 kNN 위에서만 시험했다.
+            return merge([d for d, _ in g_t.beam_search(sd, qsim.tolist(),
+                                                        BEAM_D, BEAM_W, 0.0, MAXK)], i)
         if cond == "GK":
             return merge([d for d, _ in g_tk.spread(sd, sa, 3, 0.65, 0.02, MAXK)], i)
         if cond == "GKB":
             return merge([d for d, _ in g_tk.beam_search(sd, qsim.tolist(),
                                                          BEAM_D, BEAM_W, 0.0, MAXK)], i)
-        if cond == "GKBQ":
-            gt = np.clip((qsim - LO) / (HI - LO), FLOOR, 1.0)
-            gq = Graph(n); gq.add_edges([(a, b, float(gt[b])) for a, b in (te | knn)])
-            return merge([d for d, _ in gq.beam_search(sd, qsim.tolist(),
-                                                       BEAM_D, BEAM_W, 0.0, MAXK)], i)
         raise ValueError(cond)
 
-    conds = ["D", "G", "GK", "GKB", "GKBQ"]
+    # GKBQ는 뺐다 — beam_search가 엣지 가중치를 읽지 않아 게이팅이 닿지 않는다(2Wiki에서 확인).
+    conds = ["D", "G", "GQ", "GB", "GK", "GKB"]
     rows, per_q = {}, {}
     for c in conds:
         rs = []
@@ -305,7 +332,7 @@ def main():
              "뒤짐" if mc["loss"] > mc["gain"] and mc["p_value"] < 0.05 else "차이 없음")
         print(f"D vs {c}: 이득 {mc['gain']} 손실 {mc['loss']} p={mc['p_value']:.4f} → {v}")
 
-    payload = {"dataset": DATASET, "corpus": OFFICIAL, "embed_model": EMBED_MODEL,
+    return {"dataset": DATASET, "corpus": OFFICIAL, "embed_model": EMBED_MODEL,
                "n_passages": n, "n_questions": len(questions),
                "title_edges": len(te), "knn_edges": len(knn),
                "knn_k": KNN_K, "knn_th": KNN_TH, "beam": [BEAM_D, BEAM_W],
@@ -313,12 +340,6 @@ def main():
                "reproduction": {"ours_r5": d5, "published_r5": pub, "gap": gap,
                                 "pass": bool(gap <= REPRO_TOL)},
                "results": rows, "mcnemar": tests, "runtime_sec": time.time() - t0}
-    out = Path(f"/tmp/e1_{DATASET}_nvembed.json")
-    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
-    from huggingface_hub import HfApi
-    HfApi().upload_file(path_or_fileobj=str(out), path_in_repo=f"runs/{out.name}",
-                        repo_id=RESULTS_REPO, repo_type="dataset")
-    print(f"\n업로드: runs/{out.name}")
 
 
 if __name__ == "__main__":
