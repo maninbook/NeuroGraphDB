@@ -299,7 +299,7 @@ def main():
                "lo": LO, "hi": HI, "floor": FLOOR, "seed": SEED,
                "results": agg, "mcnemar": tests, "n_pushed": len(pushed),
                "runtime_sec": time.time() - t0}
-    out = Path(f"/tmp/gate_{DATASET}_n{len(questions)}.json")
+    out = Path(f"/tmp/gate_{DATASET}_n{len(questions)}_s{SEED}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
     api = HfApi()

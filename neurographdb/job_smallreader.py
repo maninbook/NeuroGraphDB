@@ -346,7 +346,7 @@ def main():
                "results": {k: v["results"] for k, v in report.items()},
                "mcnemar": out_tests, "runtime_sec": time.time() - t0}
     tag = LLM_MODEL.split("/")[-1] + ("_closedbook" if CLOSED else "")
-    out = Path(f"/tmp/smallreader_{tag}_top{TOP_K}_n{N_Q}.json")
+    out = Path(f"/tmp/smallreader_{tag}_{ONLY or 'all'}_top{TOP_K}_n{N_Q}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
     HfApi().upload_file(path_or_fileobj=str(out), path_in_repo=f"runs/{out.name}",

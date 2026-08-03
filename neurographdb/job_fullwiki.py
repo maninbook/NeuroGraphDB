@@ -147,7 +147,22 @@ def main():
     print(f"    2Wiki    68.8%  → dense 대비 +38.6%p")
     print(f"    HotpotQA 61.0%  → +6.6%p (dense가 이미 0.874라 여지가 없었음)")
     print(f"    MuSiQue  32.4%  → +6.4%p")
-    print(f"\n  LLM 기반 그래프 RAG였다면: {n/4943*74/60/24:.0f}일 (문단당 LLM 2회 기준)")
+    print(f"\n  LLM 기반 그래프 RAG였다면: 약 {n/4943*73.9/60/24:.0f}일"
+          f" (HippoRAG 잡 전체 73.9분/4,943문단의 선형 외삽 — 색인만의 시간이 아니다)")
+
+    # 결과를 파일로 남긴다. 안 그러면 로그에만 남아 제3자가 확인할 수 없다.
+    import json
+    from pathlib import Path as _P
+    from huggingface_hub import HfApi
+    payload = {"corpus": CORPUS_REPO, "n_passages": n, "n_edges": n_edges,
+               "edges_per_node": n_edges / n, "index_minutes": (time.time() - t0) / 60,
+               "gold_pair_linkage": rate, "linked": linked, "n_multi_gold": len(multi),
+               "max_title_words": MAXW, "limit": LIMIT}
+    out = _P(f"/tmp/fullwiki_{n}.json")
+    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    HfApi().upload_file(path_or_fileobj=str(out), path_in_repo=f"runs/{out.name}",
+                        repo_id="goethe0101/neurographdb-results", repo_type="dataset")
+    print(f"  업로드: runs/{out.name}")
 
 
 if __name__ == "__main__":

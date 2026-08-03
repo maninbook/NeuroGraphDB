@@ -86,13 +86,20 @@ def _rows_hotpot_style(row):
 
 
 def _rows_musique(row):
-    """MuSiQue — paragraphs[{title, paragraph_text, is_supporting}]"""
-    passages, gold = {}, []
-    for p in row["paragraphs"]:
-        passages.setdefault(p["title"], p["paragraph_text"])
-        if p.get("is_supporting"):
-            gold.append(p["title"])
-    return passages, sorted(set(gold))
+    """MuSiQue — paragraphs[{title, paragraph_text, is_supporting}]
+
+    한 질문 안에 **같은 제목의 문단이 여러 개** 들어 있고 본문이 서로 다르다
+    (1,000질문 표본에서 1,570번, 전부 본문이 다름). 어느 쪽을 남기느냐로
+    풀의 2.8%가 갈리고 엣지 수가 11,064 vs 11,129로 달라진다.
+
+    예전에는 여기서 setdefault(첫 번째)를 썼고 다른 스크립트들은 마지막을 남겼다.
+    그래서 같은 seed·같은 풀 크기인데 결과가 어긋났고, 한동안 그 원인을
+    "임베딩 수치 차이"로 잘못 짚었다. **다수 규약(마지막)으로 통일한다.**
+    어느 쪽이 옳고 그른 게 아니라 하나로 고정되는 것이 중요하다.
+    """
+    passages = {p["title"]: p["paragraph_text"] for p in row["paragraphs"]}
+    gold = sorted({p["title"] for p in row["paragraphs"] if p.get("is_supporting")})
+    return passages, gold
 
 
 def load_pool(dataset, n_questions, seed):

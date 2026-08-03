@@ -6,8 +6,8 @@ A passage-level graph where edges are literal title mentions ("passage A's body 
 passage B's title"). Retrieval seeds spreading activation from only the **top-5 dense hits**
 and lets activation propagate. That is the whole method.
 
-On HotpotQA it matches HippoRAG 2's retrieval quality while indexing the corpus in
-**seconds instead of 74 minutes**, because it never calls an LLM to extract entities or triples.
+On HotpotQA it matches HippoRAG 2's retrieval quality at a small fraction of the indexing
+cost, because it never calls an LLM to extract entities or triples.
 
 This repository is a **research record**, not a polished library. Most of what we tried failed,
 and the failures are documented as carefully as the successes — they are the more useful half.
@@ -44,10 +44,16 @@ encoder. Its OpenIE and PPR are untouched.
 | 2WikiMultihopQA | 0.534 | **0.920** | 0.796 |
 | MuSiQue | 0.330 | 0.394 | **0.454** |
 
-| indexing 4,943 passages | |
+| 4,943 passages | wall clock |
 |---|---|
-| HippoRAG 2 | **74 minutes** (2 LLM calls per passage: NER + triple extraction) |
-| this method | **seconds** (string matching, 0 LLM calls) |
+| HippoRAG 2, whole job | **73.9 minutes** |
+| this method, edge construction | **~1 second** |
+
+The 73.9 minutes is the **entire HippoRAG job** — vLLM startup, OpenIE indexing, and retrieval
+for 500 queries. The logs do not separate indexing from retrieval, so treat it as an upper
+bound on indexing, not a measurement of it. Our ~1 second is derived from a directly measured
+rate of 0.2 ms per passage (see the full-Wikipedia run below), not from a stopwatch on this
+corpus. Both numbers are honest; only one of them is a clean measurement of indexing alone.
 
 **We do not claim higher accuracy.** In end-to-end QA (Qwen2.5-72B, top-10, n=500) we never
 beat HippoRAG 2 significantly on any dataset, and it beats us on MuSiQue (p=0.019). The
@@ -233,7 +239,7 @@ BEIR's HotpotQA corpus — the one used by MTEB — is **5.23M Wikipedia passage
 | mention edges | **63,895,815** (12.21 per node) |
 | **index time** | **23.9 minutes**, CPU, zero LLM calls |
 | **gold-pair linkage** | **59.0%** |
-| the same corpus under HippoRAG-style OpenIE | **54 days** |
+| the same corpus under HippoRAG-style OpenIE | **~54 days** (linear extrapolation) |
 
 59.0% linkage sits right where the method works — level with our small HotpotQA pool (61.0%)
 and far above MuSiQue (32.4%), where it did not. **The structure survives the scale-up.**
@@ -263,6 +269,35 @@ on your own corpus.
 Retrieval gains do not automatically become answer gains. With a 72B reader, a 12.4-point
 retrieval lead on 2Wiki shrank to 2 points of EM. Match the ranks you improve against the
 ranks your pipeline actually reads.
+
+---
+
+## Reproducibility: what you can and cannot check
+
+An audit of the published result files against the claims in this README found that several
+numbers **cannot be re-derived from the artifacts we published**, because job scripts wrote to
+filenames that omitted the seed, the question count, or the dataset, so later runs silently
+overwrote earlier ones.
+
+| claim | artifact status |
+|---|---|
+| retrieval table (n=1000), all three datasets | **verifiable** — matches `graph_*_n1000.json` exactly |
+| HippoRAG head-to-head (n=500) | **verifiable** — matches `hipporag_*_n500.json` exactly |
+| propositional ablation at n=1000 | file holds n=500 only |
+| query gating replicated over 3 seeds | file holds seed 1 only |
+| 7B and 3B reader results per dataset | each file holds one dataset |
+| full-Wikipedia run (5.23M, 23.9 min, 59.0%) | **no artifact** — job printed but never uploaded |
+
+Those numbers came from job logs and are reported faithfully, but a third party cannot
+currently confirm them. Fixing this is the top item in [NEXT.md](NEXT.md).
+
+**A second finding from the same audit.** MuSiQue rows can contain several paragraphs sharing
+one title with *different* text — 1,570 occurrences across our 1,000-question sample. Our
+scripts disagreed on which one to keep: `job_graph.py` keeps the first, every later script keeps
+the last. 279 of 9,897 pooled passages (2.8%) therefore differ between runs. Within any single
+run dense and graph share the same corpus, so **every controlled comparison stands**; only
+MuSiQue *absolute* values are incomparable across runs. HotpotQA and 2Wiki are unaffected, which
+is why their controls reproduced to three decimals and MuSiQue's did not.
 
 ---
 

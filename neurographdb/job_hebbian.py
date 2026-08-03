@@ -284,7 +284,7 @@ def main():
                "tail_control": float(np.mean(tail_ctrl)) if tail_ctrl else None,
                "tail_hebbian": float(np.mean(tail_heb)) if tail_heb else None,
                "runtime_sec": time.time() - t0}
-    out = Path(f"/tmp/hebbian_{DATASET}_d{DELTA}_t{REINFORCE_TOP}.json")
+    out = Path(f"/tmp/hebbian_{DATASET}_n{len(questions)}_d{DELTA}_t{REINFORCE_TOP}_s{SEED}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
     api = HfApi()

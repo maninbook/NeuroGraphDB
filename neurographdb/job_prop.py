@@ -296,7 +296,7 @@ def main():
                "alpha": ALPHA, "beta": BETA, "seed": SEED,
                "prop_stats": pstats, "question_type_rate": n_qt / len(questions),
                "results": results, "mcnemar": tests, "runtime_sec": time.time() - t0}
-    out = Path(f"/tmp/prop_{DATASET}_a{ALPHA}_b{BETA}.json")
+    out = Path(f"/tmp/prop_{DATASET}_n{len(questions)}_a{ALPHA}_b{BETA}_s{SEED}.json")
     out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     from huggingface_hub import HfApi
     api = HfApi()
