@@ -12,6 +12,8 @@ cost, because it never calls an LLM to extract entities or triples.
 This repository is a **research record**, not a polished library. Most of what we tried failed,
 and the failures are documented as carefully as the successes — they are the more useful half.
 
+Where the project is going, and what it has stopped chasing, is in [STRATEGY.md](STRATEGY.md).
+
 ---
 
 ## What is confirmed
