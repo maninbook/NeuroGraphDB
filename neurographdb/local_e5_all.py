@@ -39,7 +39,7 @@ EMBED_TAG = "NV-Embed-v2"
 DATASETS = {"musique": "musique", "2wiki": "2wikimultihopqa", "hotpotqa": "hotpotqa"}
 PROPRAG = {"musique": 78.3, "2wiki": 94.1, "hotpotqa": 97.4}
 HIPPO2 = {"musique": 74.7, "2wiki": 90.4, "hotpotqa": 96.3}
-MODEL = "gemma3:latest"
+MODEL = "llama3.1:8b"
 OLLAMA = "http://localhost:11434/api/chat"
 CACHE = Path("/tmp/ngdb_followups"); CACHE.mkdir(exist_ok=True)
 
@@ -149,7 +149,7 @@ def prepare(ds, t0):
         hop1.append(out[:MAXK])
     del P, Q, QSIM, dense
 
-    cf = CACHE / f"{ds}_gemma3.json"
+    cf = CACHE / f"{ds}_llama31.json"
     follow = json.loads(cf.read_text())["followups"] if cf.exists() else []
     if len(follow) < len(questions):
         print(f"[{time.time()-t0:7.1f}s] {ds}: 후속 질의 생성 "
