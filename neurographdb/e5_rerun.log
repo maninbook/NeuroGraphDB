@@ -1,0 +1,26 @@
+[  263.3s] musique: 문단 11,656 엣지 13,610
+[  314.1s] musique: 후속 질의 생성 (0/1000부터)
+    100/1000  3.5분 경과
+    200/1000  7.2분 경과
+    300/1000  10.6분 경과
+    400/1000  14.2분 경과
+    500/1000  17.6분 경과
+    600/1000  21.1분 경과
+    700/1000  24.5분 경과
+    800/1000  28.1분 경과
+    900/1000  31.6분 경과
+    1000/1000  35.1분 경과
+           Hub 업로드: decomp/musique_followups_llama31.json
+           NONE 3  빈응답 0
+    Q: When was the person who Messi's goals in Copa del Rey compared to get signed by Barcelona?
+    → "When was Eto'o top scorer compared to Lionel Messi in Copa del Rey?"
+    Q: What month did the Tripartite discussions begin between Britain, France, and the country w
+    → '"Tripartite discussions start date AND (Britain OR France) AND Warsaw Pact operatives origin country"'
+    Q: What county is Erik Hort's birthplace a part of?
+    → '"birthplace Erik Hort Rockland County New York"'
+[ 2502.1s] 2wiki: 문단 6,119 엣지 2,743
+[ 2528.3s] 2wiki: 후속 질의 생성 (0/1000부터)
+    100/1000  3.5분 경과
+    200/1000  53.0분 경과
+    300/1000  56.7분 경과
+    400/1000  60.5분 경과

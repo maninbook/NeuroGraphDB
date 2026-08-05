@@ -41,7 +41,8 @@ PROPRAG = {"musique": 78.3, "2wiki": 94.1, "hotpotqa": 97.4}
 HIPPO2 = {"musique": 74.7, "2wiki": 90.4, "hotpotqa": 96.3}
 MODEL = "llama3.1:8b"
 OLLAMA = "http://localhost:11434/api/chat"
-CACHE = Path("/tmp/ngdb_followups"); CACHE.mkdir(exist_ok=True)
+# /tmp는 청소된다 — 프로젝트 안에 두고 생성 즉시 Hub에도 올린다.
+CACHE = Path(__file__).parent / "cache"; CACHE.mkdir(exist_ok=True)
 
 DEPTH, WIDTH, NSEED, SCORE_MODE = 3, 4, 5, 0
 MAXK, MAXW = 20, 6
@@ -168,6 +169,14 @@ def prepare(ds, t0):
                 print(f"    {done}/{len(questions)}  "
                       f"{(time.time()-tg)/60:.1f}분 경과", flush=True)
         cf.write_text(json.dumps({"model": MODEL, "followups": follow}, ensure_ascii=False))
+        try:
+            from huggingface_hub import HfApi
+            HfApi().upload_file(path_or_fileobj=str(cf),
+                                path_in_repo=f"decomp/{ds}_followups_llama31.json",
+                                repo_id=RESULTS_REPO, repo_type="dataset")
+            print(f"           Hub 업로드: decomp/{ds}_followups_llama31.json", flush=True)
+        except Exception as e:
+            print(f"           Hub 업로드 실패(계속 진행): {e}", flush=True)
     else:
         print(f"[{time.time()-t0:7.1f}s] {ds}: 후속 질의 캐시 사용 ({len(follow)}개)", flush=True)
 
